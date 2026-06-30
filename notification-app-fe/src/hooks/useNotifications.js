@@ -1,20 +1,48 @@
 import { useState, useEffect } from "react";
-import { fetchNotifications } from "../apis/notifications";
+import { fetchNotifications } from "../api/notifications";
+import { getTopN } from "../utils/notificationPriority";
+import { Log } from "../middleware/logger";
 
 export function useNotifications() {
   const [notifications, setNotifications] = useState([]);
-  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     const load = async () => {
-      const data = await fetchNotifications();
-      setNotifications(data.notifications ?? []);
+      await Log("frontend", "info", "hook", "useNotifications: starting notification load");
+      setLoading(true);
+      setError(null);
+
+      try {
+        const data = await fetchNotifications();
+        const raw = data.notifications ?? [];
+
+        await Log("frontend", "info", "hook", "useNotifications: sorting started");
+        const top10 = getTopN(raw, 10);
+        await Log(
+          "frontend",
+          "info",
+          "hook",
+          `useNotifications: sorting completed, top 10 generated from ${raw.length} notifications`
+        );
+
+        setNotifications(top10);
+      } catch (err) {
+        await Log(
+          "frontend",
+          "error",
+          "hook",
+          `useNotifications: failed to load notifications - ${err.message}`
+        );
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
     };
 
     load();
-  }, [notifications]);
+  }, []);
 
-  const totalPages = 0;
-
-  return { notifications, total, totalPages, loading: false, error: true };
+  return { notifications, loading, error };
 }
