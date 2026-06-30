@@ -30,13 +30,32 @@ export function usePriorityNotifications({ topN = 10, notification_type } = {}) 
       setError(null);
 
       try {
-        // Fetch a large batch so priority sort operates on the full dataset
-        const data = await fetchNotifications({
+        // Fetch page 1 (limit=10 because server restricts limit to at most 10)
+        const page1Data = await fetchNotifications({
           page: 1,
-          limit: 100,
+          limit: 10,
           notification_type: notification_type === "All" ? undefined : notification_type,
         });
-        const raw = data.notifications ?? [];
+        let raw = page1Data.notifications ?? [];
+
+        // If we received a full page and topN > 10, fetch page 2 to get up to 20 items
+        if (raw.length === 10 && topN > 10) {
+          try {
+            const page2Data = await fetchNotifications({
+              page: 2,
+              limit: 10,
+              notification_type: notification_type === "All" ? undefined : notification_type,
+            });
+            raw = [...raw, ...(page2Data.notifications ?? [])];
+          } catch (err) {
+            await Log(
+              "frontend",
+              "warn",
+              "hook",
+              `usePriorityNotifications: page 2 fetch failed - ${err.message}`
+            ).catch(() => {});
+          }
+        }
 
         await Log(
           "frontend",
@@ -46,6 +65,7 @@ export function usePriorityNotifications({ topN = 10, notification_type } = {}) 
         );
 
         const prioritized = getTopN(raw, topN);
+
 
         await Log(
           "frontend",
