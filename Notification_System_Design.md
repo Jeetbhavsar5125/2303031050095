@@ -2,69 +2,85 @@
 
 ## Priority Algorithm
 
-Notifications are assigned a numeric weight based on their `type` field:
+Notifications are assigned a numeric weight based on their type:
 
-| Type      | Weight |
-|-----------|--------|
-| Placement | 3      |
-| Result    | 2      |
-| Event     | 1      |
+| Type      | Weight | Description |
+|-----------|--------|-------------|
+| Placement | 3      | Most critical (career/hiring updates) |
+| Result    | 2      | Important (marks/academic results) |
+| Event     | 1      | General (campus festivals/seminars) |
 
-The weight reflects business importance: a Placement notification is the most
-actionable for a student, followed by a Result, then a general Event.
-Any unrecognised type defaults to weight `0` and sinks to the bottom.
+*Any unrecognized notification type defaults to weight `0`.*
 
 ## Sorting Logic
 
-All notifications fetched from the API are sorted using a two-key comparator:
+Notifications are sorted using a two-key comparator:
+1. **Primary Sort (Weight Descending)**: Placement notifications appear first, followed by Results, and then Events.
+2. **Secondary Sort (Recency Descending)**: If two notifications have the same weight, the one with the newer `Timestamp` is shown first.
 
-1. **Primary key — weight (descending)**  
-   Higher-weight notifications appear first.  
-   `Placement → Result → Event`
+Only the **Top 10** notifications are returned to the user.
 
-2. **Secondary key — timestamp (descending)**  
-   Within the same weight tier, the notification with the newer
-   `createdAt` / `timestamp` value appears first.
-
-After sorting, only the **top 10** entries are kept and returned to the UI.
-
-```
-sorted = notifications
-  .sort((a, b) => (weight[b.type] - weight[a.type]) || (time(b) - time(a)))
-  .slice(0, 10)
+```javascript
+// Example code snippet
+const sorted = notifications.sort((a, b) => {
+  const weightDiff = getWeight(b) - getWeight(a);
+  if (weightDiff !== 0) return weightDiff;
+  return new Date(b.Timestamp).getTime() - new Date(a.Timestamp).getTime();
+}).slice(0, 10);
 ```
 
-## Efficiently Maintaining the Top 10 When New Notifications Arrive
+## Efficiently Maintaining the Top 10
 
-When a new notification arrives (e.g., via polling, WebSocket push, or
-server-sent events), the top-10 list can be updated without re-sorting
-the entire dataset using a **min-heap of size 10**:
+When new notifications arrive continuously (e.g. via real-time WebSocket feeds), performing a full re-sort is inefficient. Instead, we can maintain the Top 10 using a **Min-Heap of size 10**:
 
-### Strategy
+1. **Heap Initialization**: Maintain a min-heap with a fixed maximum capacity of 10, keyed by `(weight, timestamp)`.
+2. **On New Notification**:
+   * If heap size is less than 10, insert the new notification: **O(log 10)**.
+   * If the heap is full, compare the new notification's score with the root element (the minimum element currently in the Top 10):
+     * If the new notification has a higher priority, remove the root and insert the new notification: **O(log 10)**.
+     * Otherwise, discard the new notification: **O(1)**.
 
-1. **Maintain a min-heap** keyed on `(weight, timestamp)` with a fixed
-   capacity of 10.
-2. For every incoming notification:
-   - Compute its `(weight, timestamp)` score.
-   - If the heap has fewer than 10 entries → push the notification.
-   - Else if the new notification's score **exceeds the heap minimum** →
-     pop the minimum and push the new notification.
-   - Otherwise → discard (it would not make the top 10).
-3. The heap always contains exactly the top 10 notifications at O(log 10)
-   = **O(1) amortised** cost per new notification.
+---
 
-### Complexity
+# Stage 2
 
-| Operation            | Naive re-sort | Min-heap |
-|----------------------|---------------|----------|
-| Process 1 new item   | O(n log n)    | O(log 10) ≈ O(1) |
-| Read top 10          | O(n log n)    | O(10 log 10) ≈ O(1) |
-| Space                | O(n)          | O(10) = O(1) |
+## Application Architecture Overview
 
-### Current Implementation
+The frontend is a React application styled using **Material UI**. It contains two main views accessible via tab navigation:
 
-In the current Stage 1 implementation, `getTopN()` in
-`src/utils/notificationPriority.js` performs a full sort and slice on the
-array returned by a single API fetch. This is correct and sufficient for
-a one-time load. The min-heap optimisation would be applied when the
-notification stream becomes continuous (e.g., a live WebSocket feed).
+1. **All Notifications Page**: Shows a list of all incoming notifications using server-side pagination (`page`, `limit`) and server-side filtering (`notification_type`).
+2. **Priority Inbox Page**: Displays client-sorted top `n` notifications (customizable to 5, 10, 15, or 20) with live filtering.
+
+```
++-------------------------------------------------------------+
+|                     Campus Notifications                    |
+|       [ All Notifications ]        [ Priority Inbox ]       |
++-------------------------------------------------------------+
+|                                                             |
+|  [All] [Placement] [Result] [Event]   Show: [Top 10 | v]    |
+|                                                             |
+|  #1  [Placement] CSX Corporation hiring             [NEW]   |
+|  #2  [Placement] Visa Inc. hiring                   [NEW]   |
+|  #3  [Result]    end-sem results                            |
+|                                                             |
++-------------------------------------------------------------+
+```
+
+## Core Implementation Features
+
+### 1. Automated Authentication (`src/config/auth.js`)
+* Tokens expire after 15 minutes. To prevent manual rotations, the app auto-authenticates.
+* When requesting a token, it POSTs credentials to `/auth`, caches the token in-memory, and schedules an auto-refresh 60 seconds before it expires.
+
+### 2. Browser CORS Resolution (`vite.config.js`)
+* The assessment API sends conflicting `Access-Control-Allow-Origin` headers causing browser sandbox errors.
+* We configured a local development **reverse proxy** in Vite. Requests to `/api` are locally intercepted and safely forwarded to the remote API server by the local Node server, bypassing CORS restrictions entirely.
+
+### 3. Read/Unread Tracker (`src/state/viewedNotifications.js`)
+* Distinguishes between new and viewed notifications without a database using browser `localStorage`.
+* **State Snapshot Pattern**: On component mount, the app captures a snapshot of currently viewed IDs. New items show a **"NEW"** badge and distinct color. Once rendered, their IDs are added to `localStorage` so they appear as read the next time the app loads.
+
+### 4. Logging Middleware (`src/middleware/logger.js`)
+* Implements the mandatory `Log(stack, level, package, message)` method.
+* **Message Truncation**: Automatically trims log messages to a maximum of 48 characters to satisfy the assessment logger's validation limit and avoid `400 Bad Request` errors.
+* **Resilient Handling**: Catch-blocks swallow logging network glitches so a logger failure never crashes the application.

@@ -1,40 +1,61 @@
 import { useState, useEffect } from "react";
 import { fetchNotifications } from "../api/notifications";
-import { getTopN } from "../utils/notificationPriority";
 import { Log } from "../middleware/logger";
 
-export function useNotifications() {
+/**
+ * Hook for the All Notifications page.
+ * Supports server-side pagination and type filtering via API query params.
+ *
+ * @param {object} [params]
+ * @param {number} [params.page=1]
+ * @param {number} [params.limit=10]
+ * @param {string} [params.notification_type]  - "All" | "Event" | "Result" | "Placement"
+ */
+export function useNotifications({ page = 1, limit = 10, notification_type } = {}) {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [totalPages, setTotalPages] = useState(1);
 
   useEffect(() => {
     const load = async () => {
-      await Log("frontend", "info", "hook", "useNotifications: starting notification load");
+      await Log(
+        "frontend",
+        "info",
+        "hook",
+        `useNotifications: loading page=${page}, limit=${limit}, type=${notification_type ?? "all"}`
+      );
+
       setLoading(true);
       setError(null);
 
       try {
-        const data = await fetchNotifications();
-        const raw = data.notifications ?? [];
+        const data = await fetchNotifications({ page, limit, notification_type });
+        const notifs = data.notifications ?? [];
 
-        await Log("frontend", "info", "hook", "useNotifications: sorting started");
-        const top10 = getTopN(raw, 10);
+        setNotifications(notifs);
+
+        // Use API-provided total if available; otherwise estimate from response size
+        if (data.total != null) {
+          setTotalPages(Math.max(1, Math.ceil(data.total / limit)));
+        } else {
+          // If we received a full page, assume there might be more
+          setTotalPages(notifs.length >= limit ? page + 1 : page);
+        }
+
         await Log(
           "frontend",
           "info",
           "hook",
-          `useNotifications: sorting completed, top 10 generated from ${raw.length} notifications`
+          `useNotifications: loaded ${notifs.length} notifications`
         );
-
-        setNotifications(top10);
       } catch (err) {
         await Log(
           "frontend",
           "error",
           "hook",
-          `useNotifications: failed to load notifications - ${err.message}`
-        );
+          `useNotifications: error - ${err.message}`
+        ).catch(() => {});
         setError(err.message);
       } finally {
         setLoading(false);
@@ -42,7 +63,7 @@ export function useNotifications() {
     };
 
     load();
-  }, []);
+  }, [page, limit, notification_type]);
 
-  return { notifications, loading, error };
+  return { notifications, loading, error, totalPages };
 }

@@ -36,8 +36,9 @@ export async function Log(stack, level, pkg, message) {
     stack,
     level,
     package: pkg,
-    message,
+    message: typeof message === "string" ? message.substring(0, 48) : String(message).substring(0, 48),
   };
+
 
   try {
     const token = await getToken();
@@ -60,7 +61,7 @@ export async function Log(stack, level, pkg, message) {
     const data = await response.json();
     return data;
   } catch (error) {
-    // Gracefully propagate without crashing unrelated code
-    throw error;
+    // Gracefully catch logging errors so they never crash the main application flows
+    return null;
   }
 }
