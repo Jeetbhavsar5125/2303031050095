@@ -25,8 +25,6 @@ const TOP_N_OPTIONS = [5, 10, 15, 20];
 export function PriorityNotificationsPage() {
   const [filter, setFilter] = useState("All");
   const [topN, setTopN] = useState(10);
-
-  // Snapshot of viewed IDs at mount time
   const [viewedIds] = useState(() => getViewedIds());
 
   const { notifications, loading, error } = usePriorityNotifications({
@@ -34,7 +32,6 @@ export function PriorityNotificationsPage() {
     notification_type: filter === "All" ? undefined : filter,
   });
 
-  // Mark all displayed notifications as viewed for future sessions
   useEffect(() => {
     if (notifications.length > 0) {
       notifications.forEach((n) => markAsViewed(n.ID));
@@ -42,7 +39,7 @@ export function PriorityNotificationsPage() {
         "frontend",
         "info",
         "page",
-        `PriorityNotificationsPage: marked ${notifications.length} notifications as viewed`
+        `Viewed priority: ${notifications.length}`
       ).catch(() => {});
     }
   }, [notifications]);
@@ -56,7 +53,7 @@ export function PriorityNotificationsPage() {
         "frontend",
         "info",
         "page",
-        `PriorityNotificationsPage: filter changed to "${newFilter}"`
+        `Priority Filter: ${newFilter}`
       ).catch(() => {});
     }
   };
@@ -68,13 +65,12 @@ export function PriorityNotificationsPage() {
       "frontend",
       "info",
       "page",
-      `PriorityNotificationsPage: topN changed to ${val}`
+      `Priority limit: ${val}`
     ).catch(() => {});
   };
 
   return (
     <Box>
-      {/* ── Header ─────────────────────────────────────────────────── */}
       <Stack direction="row" alignItems="center" spacing={1.5} mb={0.5}>
         <Badge badgeContent={unreadCount} color="error" max={99}>
           <StarIcon sx={{ fontSize: 28, color: "warning.main" }} />
@@ -91,7 +87,6 @@ export function PriorityNotificationsPage() {
 
       <Divider sx={{ mb: 2.5 }} />
 
-      {/* ── Controls ───────────────────────────────────────────────── */}
       <Stack
         direction={{ xs: "column", sm: "row" }}
         alignItems={{ xs: "flex-start", sm: "center" }}
@@ -118,7 +113,6 @@ export function PriorityNotificationsPage() {
         </FormControl>
       </Stack>
 
-      {/* ── Content ────────────────────────────────────────────────── */}
       {loading && (
         <Box display="flex" justifyContent="center" py={8}>
           <CircularProgress />
@@ -133,7 +127,7 @@ export function PriorityNotificationsPage() {
 
       {!loading && !error && notifications.length === 0 && (
         <Alert severity="info" sx={{ mt: 1 }}>
-          No{filter !== "All" ? ` ${filter}` : ""} notifications found.
+          No {filter !== "All" ? filter : ""} notifications found.
         </Alert>
       )}
 

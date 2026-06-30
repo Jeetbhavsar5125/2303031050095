@@ -20,7 +20,6 @@ export default function App() {
     <>
       <CssBaseline />
 
-      {/* ── App Bar ──────────────────────────────────────────── */}
       <AppBar position="sticky" elevation={1}>
         <Toolbar sx={{ minHeight: { xs: 56 } }}>
           <NotificationsActiveIcon sx={{ mr: 1.5 }} />
@@ -41,7 +40,6 @@ export default function App() {
         </Tabs>
       </AppBar>
 
-      {/* ── Page Content ─────────────────────────────────────── */}
       <Box
         component="main"
         sx={{

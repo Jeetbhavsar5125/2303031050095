@@ -23,23 +23,12 @@ const UNREAD_BORDER = {
   Event: "#d97706",
 };
 
-/**
- * Displays a single notification.
- * Marks the notification as viewed in localStorage on first render.
- *
- * @param {object} props
- * @param {object} props.notification  - Notification object from the API
- * @param {boolean} props.isRead       - Whether this notification was already viewed before this page load
- */
 export function NotificationCard({ notification, isRead }) {
   const { ID, Type, Message, Timestamp } = notification;
 
-  // Mark as viewed in localStorage so next session treats it as read
   useEffect(() => {
     markAsViewed(ID);
-    Log("frontend", "info", "component", `NotificationCard: marked ${ID} as viewed`).catch(
-      () => {}
-    );
+    Log("frontend", "info", "component", `Card viewed: ${ID}`).catch(() => {});
   }, [ID]);
 
   return (
@@ -60,7 +49,6 @@ export function NotificationCard({ notification, isRead }) {
     >
       <CardContent sx={{ py: 1.5, "&:last-child": { pb: 1.5 } }}>
         <Stack direction="row" alignItems="flex-start" spacing={1.5}>
-          {/* Unread dot */}
           {!isRead && (
             <FiberManualRecordIcon
               sx={{
@@ -73,7 +61,6 @@ export function NotificationCard({ notification, isRead }) {
           )}
 
           <Box sx={{ flex: 1, minWidth: 0 }}>
-            {/* Type chip + New badge */}
             <Stack direction="row" alignItems="center" spacing={1} mb={0.75}>
               <Chip
                 label={Type}
@@ -92,7 +79,6 @@ export function NotificationCard({ notification, isRead }) {
               )}
             </Stack>
 
-            {/* Message */}
             <Typography
               variant="body2"
               fontWeight={isRead ? 400 : 600}
@@ -100,14 +86,13 @@ export function NotificationCard({ notification, isRead }) {
                 overflow: "hidden",
                 textOverflow: "ellipsis",
                 whiteSpace: "nowrap",
-                color: isRead ? "text.primary" : "text.primary",
+                color: "text.primary",
               }}
               title={Message}
             >
               {Message}
             </Typography>
 
-            {/* Timestamp */}
             <Typography
               variant="caption"
               color="text.secondary"

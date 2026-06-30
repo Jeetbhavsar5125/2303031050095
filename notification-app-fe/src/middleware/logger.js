@@ -15,30 +15,21 @@ const VALID_PACKAGES = [
   "utils",
 ];
 
-/**
- * Log sends a structured log entry to the assessment logging API.
- *
- * @param {string} stack   - Must be "frontend"
- * @param {string} level   - One of: debug | info | warn | error | fatal
- * @param {string} pkg     - One of the allowed frontend packages
- * @param {string} message - Human-readable log message
- * @returns {Promise<any>} The parsed API response on success
- */
 export async function Log(stack, level, pkg, message) {
   if (!VALID_LEVELS.includes(level)) {
-    throw new Error(`[logger] Invalid log level: "${level}"`);
+    throw new Error(`Invalid log level: "${level}"`);
   }
   if (!VALID_PACKAGES.includes(pkg)) {
-    throw new Error(`[logger] Invalid package: "${pkg}"`);
+    throw new Error(`Invalid package: "${pkg}"`);
   }
 
+  const truncatedMsg = typeof message === "string" ? message.substring(0, 48) : String(message).substring(0, 48);
   const body = {
     stack,
     level,
     package: pkg,
-    message: typeof message === "string" ? message.substring(0, 48) : String(message).substring(0, 48),
+    message: truncatedMsg,
   };
-
 
   try {
     const token = await getToken();
@@ -52,16 +43,11 @@ export async function Log(stack, level, pkg, message) {
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(
-        `[logger] API responded with ${response.status}: ${errorText}`
-      );
+      throw new Error(`Status: ${response.status}`);
     }
 
-    const data = await response.json();
-    return data;
+    return await response.json();
   } catch (error) {
-    // Gracefully catch logging errors so they never crash the main application flows
     return null;
   }
 }

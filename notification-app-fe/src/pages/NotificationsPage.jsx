@@ -22,8 +22,6 @@ const LIMIT = 10;
 export function NotificationsPage() {
   const [filter, setFilter] = useState("All");
   const [page, setPage] = useState(1);
-
-  // Snapshot of viewed IDs at mount time — determines the "New" indicator
   const [viewedIds] = useState(() => getViewedIds());
 
   const { notifications, loading, error, totalPages } = useNotifications({
@@ -32,7 +30,6 @@ export function NotificationsPage() {
     notification_type: filter === "All" ? undefined : filter,
   });
 
-  // Mark all displayed notifications as viewed for future sessions
   useEffect(() => {
     if (notifications.length > 0) {
       notifications.forEach((n) => markAsViewed(n.ID));
@@ -40,7 +37,7 @@ export function NotificationsPage() {
         "frontend",
         "info",
         "page",
-        `NotificationsPage: marked ${notifications.length} notifications as viewed`
+        `Viewed ${notifications.length} items`
       ).catch(() => {});
     }
   }, [notifications]);
@@ -50,12 +47,12 @@ export function NotificationsPage() {
   const handleFilterChange = (_, newFilter) => {
     if (newFilter !== null) {
       setFilter(newFilter);
-      setPage(1); // Reset to page 1 on filter change
+      setPage(1);
       Log(
         "frontend",
         "info",
         "page",
-        `NotificationsPage: filter changed to "${newFilter}"`
+        `Filter: ${newFilter}`
       ).catch(() => {});
     }
   };
@@ -66,13 +63,12 @@ export function NotificationsPage() {
       "frontend",
       "info",
       "page",
-      `NotificationsPage: navigated to page ${newPage}`
+      `Page: ${newPage}`
     ).catch(() => {});
   };
 
   return (
     <Box>
-      {/* ── Header ─────────────────────────────────────────────────── */}
       <Stack direction="row" alignItems="center" spacing={1.5} mb={1}>
         <Badge badgeContent={unreadCount} color="error" max={99}>
           <NotificationsIcon sx={{ fontSize: 28, color: "text.secondary" }} />
@@ -89,12 +85,10 @@ export function NotificationsPage() {
 
       <Divider sx={{ mb: 2.5 }} />
 
-      {/* ── Filter ─────────────────────────────────────────────────── */}
       <Box mb={2.5}>
         <NotificationFilter value={filter} onChange={handleFilterChange} />
       </Box>
 
-      {/* ── Content ────────────────────────────────────────────────── */}
       {loading && (
         <Box display="flex" justifyContent="center" py={8}>
           <CircularProgress />
@@ -109,7 +103,7 @@ export function NotificationsPage() {
 
       {!loading && !error && notifications.length === 0 && (
         <Alert severity="info" sx={{ mt: 1 }}>
-          No{filter !== "All" ? ` ${filter}` : ""} notifications found.
+          No {filter !== "All" ? filter : ""} notifications found.
         </Alert>
       )}
 
@@ -125,7 +119,6 @@ export function NotificationsPage() {
         </Stack>
       )}
 
-      {/* ── Pagination ─────────────────────────────────────────────── */}
       {!loading && !error && totalPages > 1 && (
         <Box display="flex" justifyContent="center" mt={4}>
           <Pagination
